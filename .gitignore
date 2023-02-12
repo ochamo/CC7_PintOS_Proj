@@ -5,3 +5,6 @@ tags
 .container-id
 container/
 
+
+.vscode/*
+tmp/*
