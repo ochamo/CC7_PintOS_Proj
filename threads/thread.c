@@ -376,7 +376,33 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority)
 {
-  thread_current ()->priority = new_priority;
+  /* como el sistema se esta inicializando y no hay donaciones todavía solo llenamos las dos propiedades de
+     prioridad del thread.
+  */
+ struct thread *current_thread = thread_current();
+
+  if (current_thread->priority == current_thread->old_priority) {
+    current_thread->priority = new_priority;
+    current_thread->old_priority = new_priority;
+  } else {
+    // se ha donado la prioridad
+    current_thread->old_priority = new_priority;
+  }
+
+  // liberar cpu si el thread actual ya no es el de prioridad más alta.
+
+  bool isListEmpty = list_empty(&ready_list);
+
+  if (!isListEmpty) {
+    // extraer el siguiente thread.
+    struct thread *thread_next_in_queue = list_entry(list_begin(&ready_list), struct thread, elem);
+    // check si el siguient thread tiene una prioridad mayor.
+    // Si es asi liberar cpu. De lo contrario no se hace nada.
+    if (thread_next_in_queue->priority > current_thread->priority) {
+      // liberar el cpu
+      thread_yield();
+    }
+  }
 }
 
 /* Returns the current thread's priority. */

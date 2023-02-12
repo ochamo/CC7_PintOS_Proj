@@ -89,8 +89,11 @@ struct thread
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
-
+    int old_priority;                   /* Para guardar la prioridad inicial*/
     /* Shared between thread.c and synch.c. */
+    struct lock *current_resource_lock; /* Como se muestra en la guía del frijo cada hilo tiene
+    ocupado un solo recurso pero espera por varios recursos*/
+    struct list waiting_locks;          /* Los recursos que esta esperando que se liberen*/
     struct list_elem elem;              /* List element. */
 
     uint64_t time_to_remain_asleep;
