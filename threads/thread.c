@@ -278,8 +278,13 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  list_insert_ordered(&ready_list, &t->elem, sort_by_greatest_priority, NULL);
   t->status = THREAD_READY;
+  // LIBERAR THREAD DE MENOR PRIORIDAD
+  struct thread *curr = thread_current();
+  if (curr != idle_thread && curr->priority < t->priority) {
+    thread_yield();
+  }
   intr_set_level (old_level);
 }
 
@@ -561,6 +566,31 @@ next_thread_to_run (void)
     return idle_thread;
   else
     return list_entry (list_pop_front (&ready_list), struct thread, elem);
+}
+
+void donate_thread_priority(int priority_to_donate, struct thread *thread_to_donate) {
+  thread_to_donate->priority = priority_to_donate;
+
+  // se busca calendarizar que el primer thread de la lista sea el de mayor prioridad
+  // verifica si es el actual o si el siguiente tiene mayor prioridad
+  struct thread *current_thread = thread_current();
+
+  if ((thread_to_donate == current_thread) && (!list_empty(&ready_list))) {
+      struct thread *next_in_queue = list_entry(list_begin(&ready_list), struct thread, elem);
+      if (next_in_queue != NULL && (next_in_queue->priority > priority_to_donate)) {
+        thread_yield();
+      }
+  }
+
+}
+
+bool sort_by_greatest_priority(struct list_elem *e1, struct list_elem *e2, void *aux UNUSED) {
+  struct thread *first_thread;
+  struct thread *second_thread;
+  first_thread = list_entry(e1, struct thread, elem);
+  second_thread = list_entry(e2, struct thread, elem);
+
+  return (first_thread->priority > second_thread->priority);
 }
 
 /* Completes a thread switch by activating the new thread's page
