@@ -145,4 +145,9 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
+void donate_thread_priority(int priority_to_donate, struct thread *thread_to_donate);
+/*
+agregamos el aux, porque si vamos a ordenar la lista puede que se nos pase ese parametro
+*/
+bool sort_by_greatest_priority(struct list_elem *first, struct list_elem *second, void *aux UNUSED);
 #endif /* threads/thread.h */
