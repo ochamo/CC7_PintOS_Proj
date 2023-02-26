@@ -66,9 +66,10 @@ sema_down (struct semaphore *sema)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
+  // Tenemos que mantener la cola ordenada por prioridad
   while (sema->value == 0)
     {
-      list_push_back (&sema->waiters, &thread_current ()->elem);
+     list_insert_ordered(&sema->waiters, &thread_current()->elem, sort_by_greatest_priority, NULL);
       thread_block ();
     }
   sema->value--;
@@ -109,14 +110,20 @@ void
 sema_up (struct semaphore *sema)
 {
   enum intr_level old_level;
-
+  struct thread *thread = NULL;
   ASSERT (sema != NULL);
 
   old_level = intr_disable ();
-  if (!list_empty (&sema->waiters))
-    thread_unblock (list_entry (list_pop_front (&sema->waiters),
-                                struct thread, elem));
   sema->value++;
+  if (!list_empty (&sema->waiters))
+    // Nos aseguramos de que la lista este ordenada por prioridad
+    list_sort(&sema->waiters, sort_by_greatest_priority, NULL);
+
+    thread = list_entry(list_pop_front(&sema->waiters), struct thread, elem);
+
+    // desbloquear el thread
+    thread_unblock(thread);
+
   intr_set_level (old_level);
 }
 
@@ -203,6 +210,23 @@ lock_acquire (struct lock *lock)
   if (thread_holder_by_lock == NULL) {
     lock->priority = current_thread->priority;
   }
+
+  // iniciar proceso de donación
+  while ((thread_holder_by_lock != NULL) && (thread_holder_by_lock->priority < current_thread->priority)) {
+    donate_thread_priority(current_thread->priority, thread_holder_by_lock);
+     // verificar si la prioridad es menor que el thread actual donamos.
+    if (lock->priority < current_thread->priority) {
+        lock->priority = current_thread->priority;
+    }
+    lock = thread_holder_by_lock->current_resource_lock;
+    if (lock == NULL) {
+      break;
+    }
+
+    thread_holder_by_lock = lock->holder;
+
+  }
+
 
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
