@@ -9,6 +9,7 @@ struct semaphore
   {
     unsigned value;             /* Current value. */
     struct list waiters;        /* List of waiting threads. */
+    int priority; // la prioridad que va a manejar el semaforo
   };
 
 void sema_init (struct semaphore *, unsigned value);
@@ -49,5 +50,9 @@ void cond_broadcast (struct condition *, struct lock *);
    optimization barrier.  See "Optimization Barriers" in the
    reference guide for more information.*/
 #define barrier() asm volatile ("" : : : "memory")
+
+bool sort_by_greatest_priority_lock(struct list_elem *first, struct list_elem *second, void *aux UNUSED);
+bool sort_by_greatest_priority_sema(struct list_elem *first, struct list_elem *second, void *aux UNUSED);
+
 
 #endif /* threads/synch.h */
