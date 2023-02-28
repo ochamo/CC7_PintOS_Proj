@@ -41,24 +41,8 @@
 
    - up or "V": increment the value (and wake up one waiting
      thread, if any). */
-
-bool sort_by_greatest_priority_lock(struct list_elem *e1, struct list_elem *e2, void *aux UNUSED) {
-  struct lock *first_lock;
-  struct lock *second_lock;
-  first_lock = list_entry(e1, struct lock, blocked_resource);
-  second_lock = list_entry(e2, struct lock, blocked_resource);
-
-  return (first_lock->priority > second_lock->priority);
-}
-
-bool sort_by_greatest_priority_sema(struct list_elem *e1, struct list_elem *e2, void *aux UNUSED) {
-  struct semaphore_elem *first_sema;
-  struct semaphore_elem *second_sema;
-  first_sema = list_entry(e1, struct semaphore_elem, elem);
-  second_sema = list_entry(e2, struct semaphore_elem, elem);
-
-  return (first_sema->semaphore.priority > second_sema->semaphore.priority);
-}
+bool sort_by_greatest_priority_lock(struct list_elem *first, struct list_elem *second, void *aux UNUSED);
+bool sort_by_greatest_priority_sema(struct list_elem *first, struct list_elem *second, void *aux UNUSED);
 
 
 void
@@ -318,6 +302,26 @@ struct semaphore_elem
     struct list_elem elem;              /* List element. */
     struct semaphore semaphore;         /* This semaphore. */
   };
+
+bool sort_by_greatest_priority_lock(struct list_elem *e1, struct list_elem *e2, void *aux UNUSED) {
+  struct lock *first_lock;
+  struct lock *second_lock;
+  first_lock = list_entry(e1, struct lock, blocked_resource);
+  second_lock = list_entry(e2, struct lock, blocked_resource);
+
+  return (first_lock->priority > second_lock->priority);
+}
+
+bool sort_by_greatest_priority_sema(struct list_elem *e1, struct list_elem *e2, void *aux UNUSED) {
+  struct semaphore_elem *first_sema;
+  struct semaphore_elem *second_sema;
+  first_sema = list_entry(e1, struct semaphore_elem, elem);
+  second_sema = list_entry(e2, struct semaphore_elem, elem);
+
+  return (first_sema->semaphore.priority > second_sema->semaphore.priority);
+}
+
+
 
 /* Initializes condition variable COND.  A condition variable
    allows one piece of code to signal a condition and cooperating
