@@ -226,10 +226,10 @@ lock_acquire (struct lock *lock)
     thread_holder_by_lock = lock->holder;
 
   }
-
-
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
+  lock->holder->current_resource_lock = NULL;
+  list_insert_ordered(&(lock->holder->waiting_locks), &(lock->blocked_resource), sort_by_greatest_priority_lock, NULL);
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -265,6 +265,20 @@ lock_release (struct lock *lock)
 
   lock->holder = NULL;
   sema_up (&lock->semaphore);
+
+  struct thread *current_thread = thread_current();
+
+  // Eliminar bloqueo del recurso
+  list_remove(&lock->blocked_resource);
+  if (list_empty(&current_thread->waiting_locks)) {
+      donate_thread_priority(current_thread->old_priority, current_thread);
+  } else {
+    list_sort(&(current_thread->waiting_locks), sort_by_greatest_priority_lock, NULL);
+    struct lock *highest_lock = list_entry(list_front(&(current_thread->waiting_locks)), struct lock, blocked_resource);
+    donate_thread_priority(highest_lock->priority, current_thread);
+  }
+
+
 }
 
 /* Returns true if the current thread holds LOCK, false
@@ -327,7 +341,8 @@ cond_wait (struct condition *cond, struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
 
   sema_init (&waiter.semaphore, 0);
-  list_push_back (&cond->waiters, &waiter.elem);
+  waiter.semaphore.priority = thread_current()->priority;
+  list_insert_ordered (&cond->waiters, &(waiter.elem), sort_by_greatest_priority_sema, NULL);
   lock_release (lock);
   sema_down (&waiter.semaphore);
   lock_acquire (lock);
@@ -367,4 +382,22 @@ cond_broadcast (struct condition *cond, struct lock *lock)
 
   while (!list_empty (&cond->waiters))
     cond_signal (cond, lock);
+}
+
+bool sort_by_greatest_priority_lock(struct list_elem *e1, struct list_elem *e2, void *aux UNUSED) {
+  struct lock *first_lock;
+  struct lock *second_lock;
+  first_lock = list_entry(e1, struct lock, blocked_resource);
+  second_lock = list_entry(e2, struct lock, blocked_resource);
+
+  return (first_lock->priority > second_lock->priority);
+}
+
+bool sort_by_greatest_priority_sema(struct list_elem *e1, struct list_elem *e2, void *aux UNUSED) {
+  struct semaphore_elem *first_sema;
+  struct semaphore_elem *second_sema;
+  first_sema = list_entry(e1, struct semaphore_elem, elem);
+  second_sema = list_entry(e2, struct semaphore_elem, elem);
+
+  return (first_sema->semaphore.priority > second_sema->semaphore.priority);
 }
