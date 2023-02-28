@@ -41,8 +41,8 @@
 
    - up or "V": increment the value (and wake up one waiting
      thread, if any). */
-bool sort_by_greatest_priority_lock(struct list_elem *first, struct list_elem *second, void *aux UNUSED);
-bool sort_by_greatest_priority_sema(struct list_elem *first, struct list_elem *second, void *aux UNUSED);
+bool sort_by_greatest_priority_lock(struct list_elem *first, struct list_elem *second, void *);
+bool sort_by_greatest_priority_sema(struct list_elem *first, struct list_elem *second, void *);
 
 
 void
@@ -119,7 +119,7 @@ sema_up (struct semaphore *sema)
 
   old_level = intr_disable ();
   sema->value++;
-  if (!list_empty (&sema->waiters))
+  if (!list_empty (&sema->waiters)) {
     // Nos aseguramos de que la lista este ordenada por prioridad
     list_sort(&(sema->waiters), sort_by_greatest_priority, NULL);
 
@@ -127,6 +127,7 @@ sema_up (struct semaphore *sema)
 
     // desbloquear el thread
     thread_unblock(thread);
+  }
 
   intr_set_level (old_level);
 }
@@ -189,7 +190,7 @@ lock_init (struct lock *lock)
   ASSERT (lock != NULL);
 
   lock->holder = NULL;
-  lock->priority = PRI_DEFAULT;
+  lock->priority = PRI_MIN;
   sema_init (&lock->semaphore, 1);
 }
 
