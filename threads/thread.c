@@ -244,22 +244,17 @@ void remover_thread_durmiente(int64_t ticks) {
 	Se mueve de regreso a ready_list, con la funcion thread_unblock*/
 
 	//Iterar sobre "lista_espera"
-	struct list_elem *iter = list_begin(&waiting_to_sleep_threads);
-	while(iter != list_end(&waiting_to_sleep_threads) ){
-		struct thread *thread_lista_espera= list_entry(iter, struct thread, elem);
+  struct list_elem *iter;
 
-		/*Si el tiempo global es mayor al tiempo que el thread permanecía dormido
-		  entonces su tiempo de dormir ha expirado*/
+  for(iter = list_rbegin(&waiting_to_sleep_threads); iter != list_rend(&waiting_to_sleep_threads); iter = list_prev(iter)) {
+    struct thread *t = list_entry(iter, struct thread, elem);
+    if (t->time_to_remain_asleep <= ticks) {
+      t->time_to_remain_asleep = 0;
+      list_remove(&t->elem);
+      thread_unblock(t);
+    }
+  }
 
-		if(ticks >= thread_lista_espera->time_to_remain_asleep){
-			//Lo removemos de "lista_espera" y lo regresamos a ready_list
-			iter = list_remove(iter);
-			thread_unblock(thread_lista_espera);
-		}else{
-			//Sino, seguir iterando
-			iter = list_next(iter);
-		}
-	}
 }
 
 /* Transitions a blocked thread T to the ready-to-run state.
@@ -355,7 +350,7 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread)
-    list_push_back (&ready_list, &cur->elem);
+    list_insert_ordered (&ready_list, &cur->elem, sort_by_greatest_priority, NULL);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
