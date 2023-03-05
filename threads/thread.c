@@ -232,7 +232,7 @@ insertar_en_lista_espera(int64_t ticks) {
   struct thread *thread_actual = thread_current();
   thread_actual->time_to_remain_asleep = timer_ticks() + ticks;
 
-  list_push_back(&waiting_to_sleep_threads, &thread_actual->elem);
+  list_push_back(&waiting_to_sleep_threads, &thread_actual->sleep_element);
   thread_block();
 
   intr_set_level(old_level);
@@ -247,10 +247,10 @@ void remover_thread_durmiente(int64_t ticks) {
   struct list_elem *iter;
 
   for(iter = list_rbegin(&waiting_to_sleep_threads); iter != list_rend(&waiting_to_sleep_threads); iter = list_prev(iter)) {
-    struct thread *t = list_entry(iter, struct thread, elem);
+    struct thread *t = list_entry(iter, struct thread, sleep_element);
     if (t->time_to_remain_asleep <= ticks) {
       t->time_to_remain_asleep = 0;
-      list_remove(&t->elem);
+      list_remove(&t->sleep_element);
       thread_unblock(t);
     }
   }
@@ -274,7 +274,7 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_insert_ordered(&ready_list, &t->elem, sort_by_greatest_priority, NULL);
+  list_insert_ordered(&ready_list, &t->priority_elem, sort_by_greatest_priority, NULL);
   t->status = THREAD_READY;
   // LIBERAR THREAD DE MENOR PRIORIDAD
   struct thread *curr = thread_current();
@@ -350,7 +350,7 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread)
-    list_insert_ordered (&ready_list, &cur->elem, sort_by_greatest_priority, NULL);
+    list_insert_ordered (&ready_list, &cur->priority_elem, sort_by_greatest_priority, NULL);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -396,7 +396,7 @@ thread_set_priority (int new_priority)
 
   if (!isListEmpty) {
     // extraer el siguiente thread.
-    struct thread *thread_next_in_queue = list_entry(list_begin(&ready_list), struct thread, elem);
+    struct thread *thread_next_in_queue = list_entry(list_begin(&ready_list), struct thread, priority_elem);
     // check si el siguient thread tiene una prioridad mayor.
     // Si es asi liberar cpu. De lo contrario no se hace nada.
     if (thread_next_in_queue->priority > current_thread->priority) {
@@ -530,7 +530,10 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+  t->old_priority = priority;
   t->magic = THREAD_MAGIC;
+  t->current_resource_lock = NULL;
+  list_init(&t->waiting_locks);
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -561,7 +564,7 @@ next_thread_to_run (void)
   if (list_empty (&ready_list))
     return idle_thread;
   else
-    return list_entry (list_pop_front (&ready_list), struct thread, elem);
+    return list_entry (list_pop_front (&ready_list), struct thread, priority_elem);
 }
 
 void donate_thread_priority(int priority_to_donate, struct thread *thread_to_donate) {
@@ -572,7 +575,7 @@ void donate_thread_priority(int priority_to_donate, struct thread *thread_to_don
   struct thread *current_thread = thread_current();
 
   if ((thread_to_donate == current_thread) && (!list_empty(&ready_list))) {
-      struct thread *next_in_queue = list_entry(list_begin(&ready_list), struct thread, elem);
+      struct thread *next_in_queue = list_entry(list_begin(&ready_list), struct thread, priority_elem);
       if (next_in_queue != NULL && (next_in_queue->priority > priority_to_donate)) {
         thread_yield();
       }
@@ -583,8 +586,8 @@ void donate_thread_priority(int priority_to_donate, struct thread *thread_to_don
 bool sort_by_greatest_priority(struct list_elem *e1, struct list_elem *e2, void *aux UNUSED) {
   struct thread *first_thread;
   struct thread *second_thread;
-  first_thread = list_entry(e1, struct thread, elem);
-  second_thread = list_entry(e2, struct thread, elem);
+  first_thread = list_entry(e1, struct thread, priority_elem);
+  second_thread = list_entry(e2, struct thread, priority_elem);
 
   return (first_thread->priority > second_thread->priority);
 }
