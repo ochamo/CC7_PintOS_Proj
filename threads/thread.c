@@ -98,7 +98,7 @@ thread_init (void)
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
-  init_thread (initial_thread, "main", PRI_MIN);
+  init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
   initial_thread->time_to_remain_asleep = 0;
@@ -572,9 +572,12 @@ void donate_thread_priority(int priority_to_donate, struct thread *thread_to_don
 
   // se busca calendarizar que el primer thread de la lista sea el de mayor prioridad
   // verifica si es el actual o si el siguiente tiene mayor prioridad
-  struct thread *current_thread = thread_current();
 
-  if ((thread_to_donate == current_thread) && (!list_empty(&ready_list))) {
+  // for debugging purposes
+  int areThreadsEqual = thread_to_donate == thread_current();
+  bool isListNoEmpty = !list_empty(&ready_list);
+
+  if ((areThreadsEqual) && (isListNoEmpty == true)) {
       struct thread *next_in_queue = list_entry(list_begin(&ready_list), struct thread, priority_elem);
       if (next_in_queue != NULL && (next_in_queue->priority > priority_to_donate)) {
         thread_yield();
