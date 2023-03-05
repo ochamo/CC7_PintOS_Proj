@@ -209,25 +209,26 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
+  struct lock *current_lock = lock;
   struct thread *thread_holder_by_lock = lock->holder;
   struct thread *current_thread = thread_current();
 
   if (thread_holder_by_lock == NULL) {
-    lock->priority = current_thread->priority;
+    current_lock->priority = current_thread->priority;
   }
 
   // iniciar proceso de donación
   while ((thread_holder_by_lock != NULL) && (thread_holder_by_lock->priority < current_thread->priority)) {
     donate_thread_priority(current_thread->priority, thread_holder_by_lock);
      // verificar si la prioridad es menor que el thread actual donamos.
-    if (lock->priority < current_thread->priority) {
-        lock->priority = current_thread->priority;
-    }
-    lock = thread_holder_by_lock->current_resource_lock;
-    if (lock == NULL) {
-      break;
+    if (current_lock->priority < current_thread->priority) {
+        current_lock->priority = current_thread->priority;
     }
 
+    current_lock = thread_holder_by_lock->current_resource_lock;
+    if (current_lock == NULL) {
+      break;
+    }
     thread_holder_by_lock = lock->holder;
 
   }
@@ -368,6 +369,8 @@ cond_wait (struct condition *cond, struct lock *lock)
   sema_init (&waiter.semaphore, 0);
   waiter.semaphore.priority = thread_current()->priority;
   list_insert_ordered (&cond->waiters, &(waiter.elem), sort_by_greatest_priority_sema, NULL);
+
+
   lock_release (lock);
   sema_down (&waiter.semaphore);
   lock_acquire (lock);
