@@ -96,7 +96,7 @@ struct thread
     struct list waiting_locks;          /* Los recursos que esta esperando que se liberen*/
     struct list_elem sleep_element;              /* To be used for sleeping list */
 
-    struct list_elem priority_elem; /*To be used between threads and concurrency structures*/
+    struct list_elem elem; /*To be used between threads and concurrency structures*/
 
     uint64_t time_to_remain_asleep;
 

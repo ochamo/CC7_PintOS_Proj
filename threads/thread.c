@@ -242,7 +242,7 @@ insertar_en_lista_espera(int64_t ticks) {
 void remover_thread_durmiente(int64_t ticks) {
   /*Cuando ocurra un timer_interrupt, si el tiempo del thread ha expirado
 	Se mueve de regreso a ready_list, con la funcion thread_unblock*/
-  ASSERT (intr_get_level () == INTR_OFF);
+  /*ASSERT (intr_get_level () == INTR_OFF);
 	//Iterar sobre "lista_espera"
   struct list_elem *iter;
 
@@ -253,7 +253,28 @@ void remover_thread_durmiente(int64_t ticks) {
       list_remove(&t->sleep_element);
       thread_unblock(t);
     }
-  }
+  }*/
+
+  /*Cuando ocurra un timer_interrupt, si el tiempo del thread ha expirado
+	Se mueve de regreso a ready_list, con la funcion thread_unblock*/
+
+	//Iterar sobre "lista_espera"
+	struct list_elem *iter = list_begin(&waiting_to_sleep_threads);
+	while(iter != list_end(&waiting_to_sleep_threads) ){
+		struct thread *thread_lista_espera= list_entry(iter, struct thread, sleep_element);
+
+		/*Si el tiempo global es mayor al tiempo que el thread permanecía dormido
+		  entonces su tiempo de dormir ha expirado*/
+
+		if(ticks >= thread_lista_espera->time_to_remain_asleep){
+			//Lo removemos de "lista_espera" y lo regresamos a ready_list
+			iter = list_remove(iter);
+			thread_unblock(thread_lista_espera);
+		}else{
+			//Sino, seguir iterando
+			iter = list_next(iter);
+		}
+	}
 
 }
 
@@ -274,7 +295,7 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_insert_ordered(&ready_list, &t->priority_elem, sort_by_greatest_priority, NULL);
+  list_insert_ordered(&ready_list, &t->elem, sort_by_greatest_priority, NULL);
   t->status = THREAD_READY;
   // LIBERAR THREAD DE MENOR PRIORIDAD
   struct thread *curr = thread_current();
@@ -350,7 +371,7 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread)
-    list_insert_ordered (&ready_list, &cur->priority_elem, sort_by_greatest_priority, NULL);
+    list_insert_ordered (&ready_list, &cur->elem, sort_by_greatest_priority, NULL);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -396,7 +417,7 @@ thread_set_priority (int new_priority)
 
   if (!isListEmpty) {
     // extraer el siguiente thread.
-    struct thread *thread_next_in_queue = list_entry(list_begin(&ready_list), struct thread, priority_elem);
+    struct thread *thread_next_in_queue = list_entry(list_begin(&ready_list), struct thread, elem);
     // check si el siguient thread tiene una prioridad mayor.
     // Si es asi liberar cpu. De lo contrario no se hace nada.
     if (thread_next_in_queue->priority > current_thread->priority) {
@@ -443,7 +464,7 @@ thread_get_recent_cpu (void)
   /* Not yet implemented. */
   return 0;
 }
-
+
 /* Idle thread.  Executes when no other thread is ready to run.
 
    The idle thread is initially put on the ready list by
@@ -492,7 +513,7 @@ kernel_thread (thread_func *function, void *aux)
   function (aux);       /* Execute the thread function. */
   thread_exit ();       /* If function() returns, kill the thread. */
 }
-
+
 /* Returns the running thread. */
 struct thread *
 running_thread (void)
@@ -564,7 +585,7 @@ next_thread_to_run (void)
   if (list_empty (&ready_list))
     return idle_thread;
   else
-    return list_entry (list_pop_front (&ready_list), struct thread, priority_elem);
+    return list_entry (list_pop_front (&ready_list), struct thread, elem);
 }
 
 void donate_thread_priority(int priority_to_donate, struct thread *thread_to_donate) {
@@ -578,7 +599,7 @@ void donate_thread_priority(int priority_to_donate, struct thread *thread_to_don
   bool isListNoEmpty = !list_empty(&ready_list);
 
   if ((areThreadsEqual) && (isListNoEmpty == true)) {
-      struct thread *next_in_queue = list_entry(list_begin(&ready_list), struct thread, priority_elem);
+      struct thread *next_in_queue = list_entry(list_begin(&ready_list), struct thread, elem);
       if (next_in_queue != NULL && (next_in_queue->priority > priority_to_donate)) {
         thread_yield();
       }
@@ -589,8 +610,8 @@ void donate_thread_priority(int priority_to_donate, struct thread *thread_to_don
 bool sort_by_greatest_priority(struct list_elem *e1, struct list_elem *e2, void *aux UNUSED) {
   struct thread *first_thread;
   struct thread *second_thread;
-  first_thread = list_entry(e1, struct thread, priority_elem);
-  second_thread = list_entry(e2, struct thread, priority_elem);
+  first_thread = list_entry(e1, struct thread, elem);
+  second_thread = list_entry(e2, struct thread, elem);
 
   return (first_thread->priority > second_thread->priority);
 }
@@ -677,7 +698,7 @@ allocate_tid (void)
 
   return tid;
 }
-
+
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);

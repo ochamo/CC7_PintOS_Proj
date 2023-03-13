@@ -73,7 +73,7 @@ sema_down (struct semaphore *sema)
   // Tenemos que mantener la cola ordenada por prioridad
   while (sema->value == 0)
     {
-      list_insert_ordered(&sema->waiters, &thread_current()->priority_elem, sort_by_greatest_priority, NULL);
+      list_insert_ordered(&sema->waiters, &thread_current()->elem, sort_by_greatest_priority, NULL);
       thread_block ();
     }
   sema->value--;
@@ -123,7 +123,7 @@ sema_up (struct semaphore *sema)
     // Nos aseguramos de que la lista este ordenada por prioridad
     list_sort(&(sema->waiters), sort_by_greatest_priority, NULL);
 
-    thread = list_entry(list_pop_front(&sema->waiters), struct thread, priority_elem);
+    thread = list_entry(list_pop_front(&sema->waiters), struct thread, elem);
 
     // desbloquear el thread
     thread_unblock(thread);
@@ -168,7 +168,7 @@ sema_test_helper (void *sema_)
       sema_up (&sema[1]);
     }
 }
-
+
 /* Initializes LOCK.  A lock can be held by at most a single
    thread at any given time.  Our locks are not "recursive", that
    is, it is an error for the thread currently holding a lock to
@@ -297,7 +297,7 @@ lock_held_by_current_thread (const struct lock *lock)
 
   return lock->holder == thread_current ();
 }
-
+
 /* One semaphore in a list. */
 struct semaphore_elem
   {
