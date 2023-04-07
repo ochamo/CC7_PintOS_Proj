@@ -1,0 +1,8 @@
+{
+    "C_Cpp.errorSquiggles": "disabled",
+    "files.associations": {
+        "pagedir.h": "c",
+        "tss.h": "c",
+        "process.h": "c"
+    }
+}
