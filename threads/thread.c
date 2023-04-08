@@ -138,6 +138,8 @@ thread_tick (void)
   else
     kernel_ticks++;
 
+  remover_thread_durmiente()
+
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
@@ -240,20 +242,6 @@ insertar_en_lista_espera(int64_t ticks) {
 }
 
 void remover_thread_durmiente(int64_t ticks) {
-  /*Cuando ocurra un timer_interrupt, si el tiempo del thread ha expirado
-	Se mueve de regreso a ready_list, con la funcion thread_unblock*/
-  /*ASSERT (intr_get_level () == INTR_OFF);
-	//Iterar sobre "lista_espera"
-  struct list_elem *iter;
-
-  for(iter = list_rbegin(&waiting_to_sleep_threads); iter != list_rend(&waiting_to_sleep_threads); iter = list_prev(iter)) {
-    struct thread *t = list_entry(iter, struct thread, sleep_element);
-    if (t->time_to_remain_asleep <= ticks) {
-      t->time_to_remain_asleep = 0;
-      list_remove(&t->sleep_element);
-      thread_unblock(t);
-    }
-  }*/
 
   /*Cuando ocurra un timer_interrupt, si el tiempo del thread ha expirado
 	Se mueve de regreso a ready_list, con la funcion thread_unblock*/
