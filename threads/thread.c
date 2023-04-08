@@ -138,8 +138,6 @@ thread_tick (void)
   else
     kernel_ticks++;
 
-  remover_thread_durmiente()
-
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
