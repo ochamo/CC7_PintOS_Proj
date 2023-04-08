@@ -599,7 +599,11 @@ bool sort_by_greatest_priority(struct list_elem *e1, struct list_elem *e2, void 
   first_thread = list_entry(e1, struct thread, elem);
   second_thread = list_entry(e2, struct thread, elem);
 
-  return (first_thread->priority > second_thread->priority);
+  if (first_thread->priority > second_thread->priority) {
+    return true;
+  } else {
+    return false;
+  }
 }
 
 /* Completes a thread switch by activating the new thread's page
