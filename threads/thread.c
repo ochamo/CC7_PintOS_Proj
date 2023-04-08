@@ -598,7 +598,7 @@ void donate_thread_priority(int priority_to_donate, struct thread *thread_to_don
   int areThreadsEqual = thread_to_donate == thread_current();
   bool isListNoEmpty = !list_empty(&ready_list);
 
-  if ((areThreadsEqual) && (isListNoEmpty == true)) {
+  if ((areThreadsEqual) && !list_empty(&ready_list)) {
       struct thread *next_in_queue = list_entry(list_begin(&ready_list), struct thread, elem);
       if (next_in_queue != NULL && (next_in_queue->priority > priority_to_donate)) {
         thread_yield();

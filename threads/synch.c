@@ -311,7 +311,11 @@ bool sort_by_greatest_priority_lock(struct list_elem *e1, struct list_elem *e2, 
   first_lock = list_entry(e1, struct lock, blocked_resource);
   second_lock = list_entry(e2, struct lock, blocked_resource);
 
-  return (first_lock->priority > second_lock->priority);
+  if (first_lock->priority > second_lock->priority) {
+    return true;
+  } else {
+    return false;
+  }
 }
 
 bool sort_by_greatest_priority_sema(struct list_elem *e1, struct list_elem *e2, void *aux UNUSED) {
@@ -320,7 +324,11 @@ bool sort_by_greatest_priority_sema(struct list_elem *e1, struct list_elem *e2, 
   first_sema = list_entry(e1, struct semaphore_elem, elem);
   second_sema = list_entry(e2, struct semaphore_elem, elem);
 
-  return (first_sema->semaphore.priority > second_sema->semaphore.priority);
+  if (first_sema->semaphore.priority > second_sema->semaphore.priority) {
+    return true;
+  } else {
+    return false;
+  }
 }
 
 
