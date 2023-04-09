@@ -254,11 +254,13 @@ void remover_thread_durmiente(int64_t ticks) {
 
 		if(ticks >= thread_lista_espera->time_to_remain_asleep){
 			//Lo removemos de "lista_espera" y lo regresamos a ready_list
-			list_remove(iter);
+			iter = list_remove(&thread_lista_espera->sleep_element);
 			thread_unblock(thread_lista_espera);
 		}else{
 			//Sino, seguir iterando
-			iter = list_next(iter);
+      if (iter != list_end(&waiting_to_sleep_threads)) {
+        iter = list_next(iter);
+      }
 		}
 	}
 
@@ -285,7 +287,7 @@ thread_unblock (struct thread *t)
   t->status = THREAD_READY;
   // LIBERAR THREAD DE MENOR PRIORIDAD
   struct thread *curr = thread_current();
-  if (curr != idle_thread && curr->priority < t->priority) {
+  if (thread_current() != idle_thread && thread_current()->priority < t->priority) {
     thread_yield();
   }
   intr_set_level (old_level);
@@ -356,8 +358,9 @@ thread_yield (void)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
-  if (cur != idle_thread)
-    list_insert_ordered (&ready_list, &cur->elem, sort_by_greatest_priority, NULL);
+  if (cur != idle_thread) {
+      list_insert_ordered (&ready_list, &cur->elem, sort_by_greatest_priority, NULL);
+  }
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -586,6 +589,7 @@ void donate_thread_priority(int priority_to_donate, struct thread *thread_to_don
 
   if ((areThreadsEqual) && !list_empty(&ready_list)) {
       struct thread *next_in_queue = list_entry(list_begin(&ready_list), struct thread, elem);
+      int priority_next_in_queue = next_in_queue->priority;
       if (next_in_queue != NULL && (next_in_queue->priority > priority_to_donate)) {
         thread_yield();
       }
