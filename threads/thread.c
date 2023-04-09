@@ -254,7 +254,7 @@ void remover_thread_durmiente(int64_t ticks) {
 
 		if(ticks >= thread_lista_espera->time_to_remain_asleep){
 			//Lo removemos de "lista_espera" y lo regresamos a ready_list
-			iter = list_remove(iter);
+			list_remove(iter);
 			thread_unblock(thread_lista_espera);
 		}else{
 			//Sino, seguir iterando
