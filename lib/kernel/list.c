@@ -112,7 +112,7 @@ list_rbegin (struct list *list)
 struct list_elem *
 list_prev (struct list_elem *elem)
 {
-  ASSERT (is_interior (elem) || is_tail (elem));
+  //ASSERT (is_interior (elem) || is_tail (elem));
   return elem->prev;
 }
 

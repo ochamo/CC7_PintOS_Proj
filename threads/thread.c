@@ -244,6 +244,8 @@ void remover_thread_durmiente(int64_t ticks) {
   /*Cuando ocurra un timer_interrupt, si el tiempo del thread ha expirado
 	Se mueve de regreso a ready_list, con la funcion thread_unblock*/
 
+  ticks = timer_ticks();
+
 	//Iterar sobre "lista_espera"
 	struct list_elem *iter = list_begin(&waiting_to_sleep_threads);
 	while(iter != list_end(&waiting_to_sleep_threads) ){
