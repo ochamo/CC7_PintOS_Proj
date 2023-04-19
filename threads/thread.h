@@ -152,4 +152,14 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
+bool priority_compare(const struct list_elem *a, const struct list_elem *b, void *aux);
+
+/* calculate recent cpu and average load to implement MLFQS */
+void calculate_load_avg(void);
+void calculate_recent_cpu(struct thread * t);
+void calculate_priority_mlfqs(struct thread * t);
+
+void calculate_recent_cpu_all(void);
+void calculate_priority_mlfqs_all(void);
+
 #endif /* threads/thread.h */

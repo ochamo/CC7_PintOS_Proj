@@ -31,7 +31,6 @@ typedef int32_t fixed_t;
 /* f = 2**q */
 #define FRACTION (2 << 14)
 
-
 #define CONVERT_TO_FIXED(n) ((n) * FRACTION)
 
 /* convert x to int (round to nearest number)

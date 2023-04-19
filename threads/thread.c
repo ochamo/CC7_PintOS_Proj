@@ -52,6 +52,7 @@ struct kernel_thread_frame
 static long long idle_ticks;    /* # of timer ticks spent idle. */
 static long long kernel_ticks;  /* # of timer ticks in kernel threads. */
 static long long user_ticks;    /* # of timer ticks in user programs. */
+static long long ticks;
 
 /* Scheduling. */
 #define TIME_SLICE 4            /* # of timer ticks to give each thread. */
@@ -206,6 +207,10 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
+  if(thread_mlfqs) {
+    calculate_priority(t);
+  }
+
   return tid;
 }
 
@@ -283,6 +288,16 @@ thread_unblock (struct thread *t)
   list_push_back (&ready_list, &t->elem);
   t->status = THREAD_READY;
   intr_set_level (old_level);
+}
+
+/* Function to compare priority of threads and sort lists */
+bool
+priority_compare(const struct list_elem *a,const struct list_elem *b, void *aux UNUSED){
+  struct thread *t_a, *t_b;
+  t_a = list_entry(a, struct thread, elem);
+  t_b = list_entry(b, struct thread, elem);
+
+  return t_a->priority > t_b->priority;
 }
 
 /* Returns the name of the running thread. */
@@ -448,6 +463,9 @@ thread_get_recent_cpu (void)
   return CONVERT_TO_REAL(100 * thread_current()->recent_cpu);
 }
 
+/* Load average is a system wide variable.
+load_avg = (59/60)*load_avg + (1/60)*ready_threads */
+
 void calculate_load_avg(void) {
   int ready_threads;
   struct thread * t = thread_current();
@@ -456,8 +474,58 @@ void calculate_load_avg(void) {
   load_avg = MUL_FIXED(CONVERT_TO_FIXED(59)/60, load_avg) + CONVERT_TO_FIXED(1)/60 * ready_threads;
 }
 
-void calculate_recent_cpu(struct thread *t){return 0;}
-void calculate_priority(struct thread *t){return 0;}
+/* recent_cpu = (2*load_avg)/(2*load_avg + 1) * recent_cpu + nice */
+void calculate_recent_cpu(struct thread *t){
+  int load = 2 * load_avg;
+  t->recent_cpu = ADD_FIXED_REAL(
+    MUL_FIXED(
+      DIV_FIXED(
+        load,
+        ADD_FIXED_REAL(load, 1)),
+      t->recent_cpu),
+    t->nice);
+}
+
+/* Once per second recent CPU has to be recalculated for every thread. */
+void calculate_recent_cpu_all(void) {
+  struct thread *t;
+  struct list_elem *e;
+  e = list_begin(&all_list);
+
+  for(e = list_begin(&all_list); e != list_end(&all_list); e = list_next(e)) {
+    t = list_entry(e, struct thread, allelem);
+    calculate_recent_cpu(t);
+  }
+
+};
+
+/* Use recent CPU and nice to determine MLFQS priority
+    priority = PRI_MAX - (recent_cpu / 4) - (nice * 2)
+    The coefficients 1/4 and 2 on recent_cpu and nice,
+    have been found to work well in practice but lack deeper meaning. */
+
+void calculate_priority_mlfqs(struct thread *t){
+  t->priority = PRI_MAX - CONVERT_TO_REAL((t->recent_cpu) / 4) - (t->nice * 2);
+  if(t->priority > PRI_MAX){
+    t->priority = PRI_MAX;
+  }
+  else if(t->priority < PRI_MIN) {
+    t->priority = PRI_MIN;
+  }
+}
+
+void calculate_priority_mlfqs_all(void) {
+  struct thread *t;
+  struct list_elem *e;
+
+  for(e = list_begin(&all_list); e != list_end(&all_list); e = list_next(e)) {
+    t = list_entry(e, struct thread, allelem);
+    calculate_priority_mlfqs(t);
+  }
+
+  list_sort(&ready_list, priority_compare, NULL);
+
+}
 
 
 /* Idle thread.  Executes when no other thread is ready to run.
