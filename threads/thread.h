@@ -24,6 +24,11 @@ typedef int tid_t;
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
 
+/* MLFQS variables */
+#define MAX_NICE 20
+#define DEFAULT_NICE 0
+#define MIN_NICE -20
+
 /* A kernel thread or user process.
 
    Each thread structure is stored in its own 4 kB page.  The
@@ -95,6 +100,8 @@ struct thread
     ocupado un solo recurso pero espera por varios recursos*/
     struct list waiting_locks;          /* Los recursos que esta esperando que se liberen*/
     struct list_elem elem;              /* List element. */
+    int nice;                           /* nice para MLFQS*/
+    int recent_cpu;
 
     uint64_t time_to_remain_asleep;
 

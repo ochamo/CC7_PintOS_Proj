@@ -11,6 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "threads/arithmetic.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -60,6 +61,7 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
 bool thread_mlfqs;
+static int load_avg;
 
 static void kernel_thread (thread_func *, void *aux);
 
@@ -416,32 +418,47 @@ thread_get_priority (void)
 void
 thread_set_nice (int nice UNUSED)
 {
-  /* Not yet implemented. */
+  ASSERT(MIN_NICE <= nice && nice <= MAX_NICE);
+  struct thread *t = thread_current();
+  t->nice = nice;
+
+  if(t == idle_thread) return;
+  calculate_recent_cpu(t);
+  calculate_priority(t);
 }
 
 /* Returns the current thread's nice value. */
 int
 thread_get_nice (void)
 {
-  /* Not yet implemented. */
-  return 0;
+  return thread_current ()->nice;
 }
 
 /* Returns 100 times the system load average. */
 int
 thread_get_load_avg (void)
 {
-  /* Not yet implemented. */
-  return 0;
+  return CONVERT_TO_REAL(100 * load_avg);
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu (void)
 {
-  /* Not yet implemented. */
-  return 0;
+  return CONVERT_TO_REAL(100 * thread_current()->recent_cpu);
 }
+
+void calculate_load_avg(void) {
+  int ready_threads;
+  struct thread * t = thread_current();
+  if (t != idle_thread) ready_threads = list_size(&ready_list) + 1;
+  else ready_threads = list_size(&ready_list);
+  load_avg = MUL_FIXED(CONVERT_TO_FIXED(59)/60, load_avg) + CONVERT_TO_FIXED(1)/60 * ready_threads;
+}
+
+void calculate_recent_cpu(struct thread *t){return 0;}
+void calculate_priority(struct thread *t){return 0;}
+
 
 /* Idle thread.  Executes when no other thread is ready to run.
 
@@ -530,6 +547,14 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  // list_init(&t->holdingLocks)
+
+  /* MLFQS thread. Se inicializa con un NICE de cero y con recent_cpu 0 */
+  if(thread_mlfqs){
+    t->nice = DEFAULT_NICE;
+    if(t == initial_thread) t->recent_cpu = 0;
+    else t->recent_cpu = thread_get_recent_cpu();
+  }
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -609,6 +634,8 @@ thread_schedule_tail (struct thread *prev)
     }
 }
 
+/* PREEMPT FUNCTION to yield priority -- ref86 */
+
 /* Schedules a new process.  At entry, interrupts must be off and
    the running process's state must have been changed from
    running to some other state.  This function finds another
@@ -649,3 +676,6 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+
+
