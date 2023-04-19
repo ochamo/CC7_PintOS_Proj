@@ -94,7 +94,9 @@ struct thread
     struct lock *current_resource_lock; /* Como se muestra en la guía del frijo cada hilo tiene
     ocupado un solo recurso pero espera por varios recursos*/
     struct list waiting_locks;          /* Los recursos que esta esperando que se liberen*/
-    struct list_elem elem;              /* List element. */
+    struct list_elem sleep_element;              /* To be used for sleeping list */
+
+    struct list_elem elem; /*To be used between threads and concurrency structures*/
 
     uint64_t time_to_remain_asleep;
 
@@ -144,5 +146,11 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+void donate_thread_priority(int priority_to_donate, struct thread *thread_to_donate);
+/*
+agregamos el aux, porque si vamos a ordenar la lista puede que se nos pase ese parametro
+*/
+bool sort_by_greatest_priority(struct list_elem *first, struct list_elem *second, void *aux UNUSED);
 
 #endif /* threads/thread.h */
