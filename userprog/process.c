@@ -1,4 +1,5 @@
 #include "userprog/process.h"
+#include "userprog/syscall.h"
 #include <debug.h>
 #include <inttypes.h>
 #include <round.h>
@@ -34,14 +35,14 @@ process_execute (const char *file_name)
   char *param_filename=NULL;
   tid_t tid;
   char *ptr_save = NULL;
-  struct process_control_block *process_control_block = NULL;
+  struct process_control_block *pcb = NULL;
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
 
   if (fn_copy == NULL){
-    return TID_ERROR;
+    return PID_ERROR;
   }
   strlcpy (fn_copy, file_name, PGSIZE);
 
@@ -51,55 +52,55 @@ process_execute (const char *file_name)
   //VALIDAMOS QUE TENGA PAGINA SI NO TIENE LIBERAMOS LA PAGINA DE LA COPIA
   if(param_filename === NULL){
     palloc_free_page (fn_copy);
-    return TID_ERROR;
+    return PID_ERROR;
   }
 
   strlcpy (param_filename, file_name, PGSIZE);
-  param_filename = strtok_r(param_filename, " ", &ptr_save)
+  param_filename = strtok_r(param_filename, " ", &ptr_save);
 
-  process_control_block = palloc_get_page(0);
-
-  if(process_control_block==NULL){
+//TENEMOS UNA PAGINA PARA EL PCB
+  pcb = palloc_get_page(0);
+  if(pcb==NULL){
     palloc_free_page(fn_copy);
     palloc_free_page(param_filename);
-    return TID_ERROR;
+    return PID_ERROR;
   }
 
   //Valores de process_control_block
-  process_control_block->pid = pid_init
+  pcb->pid = pid_init
   //COLOCAMOS EL THREAD COMO PADRE
-  process_control_block->parent_thread = thread_current();
+  pcb->parent_thread = thread_current();
 
-  process_control_block->file_name=fn_copy;
-  process_control_block->file_name_waiting=false;
-  process_control_block->file_name_exited=false;
-  process_control_block->file_name_orpahn =false;
-  process_control_block->exit_code=-1;
+  pcb->file_name=fn_copy;
+  pcb->file_name_waiting=false;
+  pcb->file_name_exited=false;
+  pcb->file_name_orpahn =false;
+  pcb->exit_code=-1;
 
-  sema_init(&process_control_block->sema_initialization,0);
-  sema_init(&process_control_block->sema_wait,0);
+  sema_init(&pcb->sema_initialization,0);
+  sema_init(&pcb->sema_wait,0);
 
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (param_filename, PRI_DEFAULT, start_process, process_control_block);
+  tid = thread_create (param_filename, PRI_DEFAULT, start_process, pcb);
 
-  if (tid == TID_ERROR){
+  if (tid == PID_ERROR){
     palloc_free_page (fn_copy);
     palloc_free_page(param_filename);
     palloc_get_page(process_control_block);
-    return TID_ERROR
+    return PID_ERROR
   }
 
   //ESPERAMOS QUE STARTPROCESS FINALIZE Y LLAMA A SEMADOW PARA VALIDAR EL PID
-  sema_down(*process_control_block->sema_initialization);
+  sema_down(*pcb->sema_initialization);
   if(fn_copy){
     palloc_free_page(fn_copy);
   }
-  if(process_control_block->pid >= 0){
-    list_push_back(&(thread_current()->child_list),&(process_control_block->child_elem));
+  if(pcb->pid >= 0){
+    list_push_back(&(thread_current()->child_list),&(pcb->child_elem));
   }
   palloc_free_page(param_filename);
 
-  return process_control_block->pid;
+  return pcb->pid;
 }
 
 
@@ -107,11 +108,33 @@ process_execute (const char *file_name)
 /* A thread function that loads a user process and starts it
    running. */
 static void
-start_process (void *file_name_)
+start_process (void *pcb_)
 {
-  char *file_name = file_name_;
+  struct process_control_block *pcb = pcb_;
+  char *file_name = (char*) pcb->file_name;
   struct intr_frame if_;
-  bool success;
+  bool success=false;
+
+  const char **token_filename = (const char**) palloc_get_page(0);
+
+  //validamos
+  if(token_filename == NULL){
+    printf("[ERROR] Kenel Error: Not enough memory \n");
+    goto finish_step;
+  }
+
+  char* token;
+  char* ptr_save;
+  int counter=0;
+
+  //lectura de argumaentos dentro del archivo
+
+  for(token = strtok_r(file_name, " ",&ptr_save); token !=NULL;
+      token = strtok_r(NULL," ",&ptr_save))
+  {
+      token_filename[counter++]=token;
+  }
+
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
@@ -120,8 +143,21 @@ start_process (void *file_name_)
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
 
+  //load success
+  if(success){
+    push_arguments(token_filename,counter,&if_.esp);
+  }
+
   /* If load failed, quit. */
-  palloc_free_page (file_name);
+  palloc_free_page (token_filename);
+
+  finish_step:
+
+//asigna pid
+  pcb-> pid =success ? (pid_t)(t->tid) : PID_ERROR;
+
+  sema_up(&pcb->sema_initialization);
+
   if (!success)
     thread_exit ();
 
@@ -133,6 +169,36 @@ start_process (void *file_name_)
      and jump to it. */
   asm volatile ("movl %0, %%esp; jmp intr_exit" : : "g" (&if_) : "memory");
   NOT_REACHED ();
+}
+
+/*
+ * coloca todos los argumentos dentro del stack, utilizando argc y argv
+ */
+static void
+push_arguments (const char* cmdline_tokens[], int argc, void **esp)
+{
+    ASSERT(argc >= 0);
+    int i, len = 0;
+    void* argv_addr[argc];
+    for (i = 0; i < argc; i++) {
+        len = strlen(cmdline_tokens[i]) + 1;
+        *esp -= len;
+        memcpy(*esp, cmdline_tokens[i], len);
+        argv_addr[i] = *esp;
+    }
+    *esp = (void*)((unsigned int)(*esp) & 0xfffffffc);
+    *esp -= 4;
+    *((uint32_t*) *esp) = 0;
+    for (i = argc - 1; i >= 0; i--) {
+        *esp -= 4;
+        *((void**) *esp) = argv_addr[i];
+    }
+    *esp -= 4;
+    *((void**) *esp) = (*esp + 4);
+    *esp -= 4;
+    *((int*) *esp) = argc;
+    *esp -= 4;
+    *((int*) *esp) = 0;
 }
 
 /* Waits for thread TID to die and returns its exit status.  If

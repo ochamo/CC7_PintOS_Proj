@@ -8,6 +8,7 @@
 //definicion de pid_t
 typedef int pid_t;
 
+#define PID_ERROR  ((pid_t) -1)
 #define pid_init  ((pid_t) -2);
 
 pid_t process_execute (const char *file_name);
