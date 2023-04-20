@@ -213,6 +213,8 @@ lock_acquire (struct lock *lock)
   struct thread *thread_holder_by_lock = lock->holder;
   struct thread *current_thread = thread_current();
 
+  current_thread->current_resource_lock = lock;
+
   if (thread_holder_by_lock == NULL) {
     current_lock->priority = current_thread->priority;
   }
@@ -374,10 +376,10 @@ cond_wait (struct condition *cond, struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (lock_held_by_current_thread (lock));
 
-  sema_init (&waiter.semaphore, 0);
   waiter.semaphore.priority = thread_current()->priority;
   list_insert_ordered (&cond->waiters, &(waiter.elem), sort_by_greatest_priority_sema, NULL);
 
+  sema_init (&waiter.semaphore, 0);
 
   lock_release (lock);
   sema_down (&waiter.semaphore);

@@ -342,6 +342,15 @@ thread_exit (void)
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
+
+  struct thread* current_thread = thread_current();
+  struct list_elem* item;
+
+  for (item = list_begin(&current_thread->waiting_locks); item != list_end(&current_thread->waiting_locks); item = list_next(item)) {
+    lock_release(list_entry(item, struct lock, blocked_resource));
+  }
+
+
   intr_disable ();
   list_remove (&thread_current()->allelem);
   thread_current ()->status = THREAD_DYING;
