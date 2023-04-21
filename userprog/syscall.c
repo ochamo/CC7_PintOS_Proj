@@ -65,17 +65,22 @@ syscall_handler (struct intr_frame *f UNUSED)
 
       //llamada del sistema para finalizar programa actual del usuario
 			case SYS_EXIT:
+      //obtencion de argumentos
         get_stack_arguments(f, &args[0], 1);
         //le pasamos el estado_actual del proceso al exit
 				exit(args[0]);
 				break;
 
+        //llamada del sistema para ejecucion de un nuevo programa en un nuevo thread
+        //hacemos uso de un solo argumento, que es la linea entera de comandos para ejecutar el programa
 			case SYS_EXEC:
-				/* The first argument of exec is the entire command line text for executing the program */
+        //obtencion de argumentos
 				get_stack_arguments(f, &args[0], 1);
 
-        /* Ensures that converted address is valid. */
+        //convertimos la direccion de memoria virtual a fisica
         memFisica_ptr = (void *) pagedir_get_page(thread_current()->pagedir, (const void *) args[0]);
+
+        //comprobamos la validez de la direccion
         if (memFisica_ptr == NULL)
         {
           exit(-1);
@@ -245,15 +250,14 @@ void check_valid_addr (const void *puntero_check)
 //la llamada al sistema
 void get_stack_arguments (struct intr_frame *f, int *args, int num_of_args)
 {
-  int i=0;
+  int i;
   int *ptr;
-
-  while(i < num_of_args){
-    ptr = (int *) f->esp + i + 1;
-    check_valid_addr((const void *) ptr);
-    args[i] = *ptr;
-    i=i+1;
-  }
+  for (i = 0; i < num_of_args; i++)
+    {
+      ptr = (int *) f->esp + i + 1;
+      check_valid_addr((const void *) ptr);
+      args[i] = *ptr;
+    }
 }
 //-->FINAL DE DEFINCION DE METODOS PROPIOS DE ARCHIVO<--
 
@@ -274,6 +278,23 @@ void exit (int estado_actual)
 	thread_current()->exit_estado_actual = estado_actual;
 	printf("%s: exit(%d)\n", thread_current()->name, estado_actual);
   thread_exit ();
+}
+
+
+//ejecuta el programa que se le especifica, con el nombre dado
+pid_t exec (const char * file)
+{
+  //si el char es nulo entonces retonra -1 y no hace nada
+	if(!file)
+	{
+		return -1;
+	}
+  //se da lock al archivo para que no interfieran otros procesos sobre este mismo
+  lock_acquire(&lock_filesys);
+  //se ejecuta el proceso, se obtiene el id del child para ser colcoado en la cola de threads para ser ejecutado
+	pid_t child_tid = process_execute(file);
+  lock_release(&lock_filesys);
+	return child_tid;
 }
 //-->METODOS DE LLAMADA DEL SISTEMA<--
 
