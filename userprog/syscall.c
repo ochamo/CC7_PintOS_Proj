@@ -91,6 +91,18 @@ syscall_handler (struct intr_frame *f UNUSED)
 				f->eax = exec((const char *) args[0]);
 				break;
 
+      //llamada del sistema que espera la finalizacion de un process child, y luego devuelve su estado
+      case SYS_WAIT:
+        ///obtenemos argumentos
+        get_stack_arguments(f, &args[0], 1);
+
+        //pasamos el id del hijo como argumento y se revuelve resultado en registro eax
+        f->eax = wait((pid_t) args[0]);
+        break;
+
+
+
+
       default:
       /* If an invalid system call was sent, terminate the program. */
       exit(-1);
@@ -105,8 +117,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 //metodo encargado de verifcacion si el pointer es valido y no nulo.
 //si el puntero no se encuentra en el espacio del usuario realiza un exit y libera los recursos
 //tambien verifica si se encuentra dentro de los limites del espacio de la memoria virtual
-void check_valid_addr (const void *puntero_check)
-{
+void check_valid_addr (const void *puntero_check){
   if(!is_user_vaddr(puntero_check) || puntero_check == NULL || puntero_check < (void *) 0x08048000)
 	{
     exit(-1);
@@ -116,8 +127,7 @@ void check_valid_addr (const void *puntero_check)
 
 //funcion encargado de obtener los argumentos que se encuentran en el stack pasados al momento de
 //la llamada al sistema
-void get_stack_arguments (struct intr_frame *f, int *args, int num_of_args)
-{
+void get_stack_arguments (struct intr_frame *f, int *args, int num_of_args){
   int i;
   int *ptr;
   for (i = 0; i < num_of_args; i++)
@@ -133,16 +143,14 @@ void get_stack_arguments (struct intr_frame *f, int *args, int num_of_args)
 //-->METODOS DE LLAMADA DEL SISTEMA<--
 
 //finaliza por completo el SO
-void halt (void)
-{
+void halt (void){
 	shutdown_power_off();
 }
 
 
 //metodo encargado de finalizar el programa actual del usuario, termina el
 //hilo y luego regresa al kernel
-void exit (int estado_actual)
-{
+void exit (int estado_actual){
 	thread_current()->exit_status = estado_actual;
 	printf("%s: exit(%d)\n", thread_current()->name, estado_actual);
   thread_exit ();
@@ -150,8 +158,7 @@ void exit (int estado_actual)
 
 
 //ejecuta el programa que se le especifica, con el nombre dado
-pid_t exec (const char * file)
-{
+pid_t exec (const char * file){
   //si el char es nulo entonces retonra -1 y no hace nada
 	if(!file)
 	{
@@ -163,6 +170,12 @@ pid_t exec (const char * file)
 	pid_t child_tid = process_execute(file);
   lock_release(&lock_filesys);
 	return child_tid;
+}
+
+
+//Metodo que se encarga de la espera del process child, si es el child del thread actual espera
+int wait (pid_t pid){
+  return process_wait(pid);
 }
 //-->METODOS DE LLAMADA DEL SISTEMA<--
 
