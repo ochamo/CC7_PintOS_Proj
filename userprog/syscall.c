@@ -223,30 +223,6 @@ syscall_handler (struct intr_frame *f UNUSED)
         seek(args[0], (unsigned) args[1]);
         break;
 
-      //llamada del sistema que se encarga de obtener la posicion actual del puntero de archivo adentro de un
-      //file abierto
-      case SYS_TELL:
-
-        //se obtiene un argumento del stack, el fd que se quiere observar
-        get_stack_arguments(f, &args[0], 1);
-
-        //se obtiene el byte de respuesta de tell y se guarda en el registro aex
-        f->eax = tell(args[0]);
-        break;
-
-
-      //llamada del sistema que se encarga de cerrar el file abierto previamente(Sys open)
-			case SYS_CLOSE:
-        /* close has exactly one stack argument, representing the fd of the file. */
-        //se obtiene un argumento del stack, el file description de un archivo
-        get_stack_arguments(f, &args[0], 1);
-
-        ///se cierra el archivo con la llamada del metodo
-        close(args[0]);
-				break;
-
-
-
 
       default:
       /* If an invalid system call was sent, terminate the program. */
