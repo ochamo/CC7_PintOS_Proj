@@ -119,7 +119,29 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED)
 {
-  return -1;
+  struct thread *children_t = NULL;
+  struct list_elem *temporales;
+  /*Si la lista esta vacia no se neceita esperar*/
+  if(list_empty(&thread_current()->child_process_list)){
+    return -1;
+  }
+
+  /*Verifica si el child thread en procesamiento es el nuestro*/
+  for(temporales = list_front(&thread_current()->child_process_list); temporales !=NULL; temporales = temporales->next){
+    struct thread *t = list_entry(temporales, struct thread, child_elem);
+    if(t->tid == child_tid){
+      children_t=t;
+      break;
+    }
+  }
+  //Si no es nuestro hijo
+  if(children_t == NULL){
+    return -1;
+  }
+  list_remove(&children_t->child_elem);   /*  Removemos al hijo de nuestras listas*/
+  sema_down(&children_t->sem_parent_sleep); /*Mandamos al  thread actual a dormir*/
+  return children_t->exit_status;/*Devolvemos el status de exit*/
+
 }
 
 /* Free the current process's resources. */
@@ -252,8 +274,17 @@ load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
   process_activate ();
 
+  char *token, *save_ptr;
+  char *argv[25];
+  int argc = 0;
+
+  for(token = strtok_r((char *)file_name, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr)){
+    argv[argc] = token;
+    argc++;
+  }
+
   /* Open executable file. */
-  file = filesys_open (file_name);
+  file = filesys_open (argv[0]);
   if (file == NULL)
     {
       printf ("load: %s: open failed\n", file_name);
@@ -333,7 +364,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
     }
 
   /* Set up stack. */
-  if (!setup_stack (esp))
+  if (!setup_stack (esp,argc,argv))
     goto done;
 
   /* Start address. */
@@ -343,7 +374,11 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
  done:
   /* We arrive here whether the load is successful or not. */
-  file_close (file);
+  if(success){
+    file_deny_write(file);
+  }else{
+    file_close (file);
+  }
   return success;
 }
 
