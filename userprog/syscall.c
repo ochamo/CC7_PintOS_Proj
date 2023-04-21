@@ -45,8 +45,33 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f UNUSED)
 {
-  printf ("system call!\n");
-  thread_exit ();
+
+    //validamos que la direccion del argumento sea el correcto
+    check_valid_addr((const void *) f->esp);
+
+    //incializamos arreglo de las llamadas al sistema
+    int args[3];
+
+    //puntero para manejar la direccion fisica de memoria
+    void * memFisica_ptr;
+
+		//realizamos cases para diferentes tipos de llamadas al sistema
+		switch(*(int *) f->esp)
+		{
+      //llamada al sistema para apagar y detener el so
+			case SYS_HALT:
+				halt();
+				break;
+
+      //llamada del sistema para finalizar programa actual del usuario
+			case SYS_EXIT:
+        get_stack_arguments(f, &args[0], 1);
+        //le pasamos el estado_actual del proceso al exit
+				exit(args[0]);
+				break;
+
+			
+		}
 }
 
 
@@ -64,12 +89,8 @@ void check_valid_addr (const void *puntero_check)
 }
 
 
-
-/*
-   Get up to three arguments from a programs stack (they directly follow the system
-   call argument). */
-
-//
+//funcion encargado de obtener los argumentos que se encuentran en el stack pasados al momento de
+//la llamada al sistema
 void get_stack_arguments (struct intr_frame *f, int *args, int num_of_args)
 {
   int i;
@@ -82,4 +103,24 @@ void get_stack_arguments (struct intr_frame *f, int *args, int num_of_args)
     }
 }
 //-->FINAL DE DEFINCION DE METODOS PROPIOS DE ARCHIVO<--
+
+
+//-->METODOS DE LLAMADA DEL SISTEMA<--
+
+//finaliza por completo el SO
+void halt (void)
+{
+	shutdown_power_off();
+}
+
+
+//metodo encargado de finalizar el programa actual del usuario, termina el
+//hilo y luego regresa al kernel
+void exit (int estado_actual)
+{
+	thread_current()->exit_estado_actual = estado_actual;
+	printf("%s: exit(%d)\n", thread_current()->name, estado_actual);
+  thread_exit ();
+}
+//-->METODOS DE LLAMADA DEL SISTEMA<--
 
