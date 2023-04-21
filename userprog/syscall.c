@@ -91,7 +91,12 @@ syscall_handler (struct intr_frame *f UNUSED)
 				f->eax = exec((const char *) args[0]);
 				break;
 
-			
+      default:
+      /* If an invalid system call was sent, terminate the program. */
+      exit(-1);
+      break;
+
+		}
 }
 
 
@@ -138,7 +143,7 @@ void halt (void)
 //hilo y luego regresa al kernel
 void exit (int estado_actual)
 {
-	thread_current()->exit_estado_actual = estado_actual;
+	thread_current()->exit_status = estado_actual;
 	printf("%s: exit(%d)\n", thread_current()->name, estado_actual);
   thread_exit ();
 }
