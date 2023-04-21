@@ -160,6 +160,13 @@ syscall_handler (struct intr_frame *f UNUSED)
 				break;
 
 
+      case SYS_FILESIZE:
+        //obtenemos argumento de filsesize
+        get_stack_arguments(f, &args[0], 1);
+
+        //desplegamos el valor del tamaño del file del proceso
+        f->eax = filesize(args[0]);
+        break;
 
       default:
       /* If an invalid system call was sent, terminate the program. */
@@ -300,5 +307,45 @@ int open (const char *file)
   lock_release(&lock_filesys);
   return fd;
 }
+
+
+
+/* Returns the size, in bytes, of the file open as fd. */
+
+//Metodo que se encarga de devolver el tamaño en bytes del archivo abietto como fd
+int filesize (int fd)
+{
+
+  struct list_elem *temporal;
+
+  lock_acquire(&lock_filesys);
+
+
+  //si no hay archivos relaciones con el nombre entonces retorna -1
+  if (list_empty(&thread_current()->file_descriptors))
+  {
+    lock_release(&lock_filesys);
+    return -1;
+  }
+
+     //verificamos si el file descriptor pertenece al thread actual y esta abaiero pot el, de
+     //Esta forma devuelve la longiud del archivo
+  for (temporal = list_front(&thread_current()->file_descriptors); temporal != NULL; temporal = temporal->next)
+  {
+      struct thread_file *t = list_entry (temporal, struct thread_file, file_elem);
+      if (t->file_descriptor == fd)
+      {
+        lock_release(&lock_filesys);
+        return (int) file_length(t->file_addr);
+      }
+  }
+
+  lock_release(&lock_filesys);
+
+  /* Return -1 if we can't find the file. */
+  return -1;
+}
+
+
 //-->METODOS DE LLAMADA DEL SISTEMA<--
 
