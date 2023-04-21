@@ -100,7 +100,25 @@ syscall_handler (struct intr_frame *f UNUSED)
         f->eax = wait((pid_t) args[0]);
         break;
 
+      //llamada del sistema que se encarga de crear un nuevo file con el nombre y tamaño especificados
+      case SYS_CREATE:
 
+        //obtenemos argumentos
+				get_stack_arguments(f, &args[0], 2);
+        //
+        check_buffer((void *)args[0], args[1]);
+
+         //convertimos la direccion de memoria virtual a fisica
+        memFisica_ptr = pagedir_get_page(thread_current()->pagedir, (const void *) args[0]);
+        if (memFisica_ptr == NULL)
+        {
+          exit(-1);
+        }
+        args[0] = (int) memFisica_ptr;
+
+        //guarda la respuesta del metodo create en el registro eax, estado del file
+        f->eax = create((const char *) args[0], (unsigned) args[1]);
+				break;
 
 
       default:
@@ -135,6 +153,19 @@ void get_stack_arguments (struct intr_frame *f, int *args, int num_of_args){
       ptr = (int *) f->esp + i + 1;
       check_valid_addr((const void *) ptr);
       args[i] = *ptr;
+    }
+}
+
+
+//Metodo que verifica si la direccion de memoria en el buffer esta en un user space valido
+void check_buffer (void *buff_to_check, unsigned size)
+{
+  unsigned i;
+  char *ptr  = (char * )buff_to_check;
+  for (i = 0; i < size; i++)
+    {
+      check_valid_addr((const void *) ptr);
+      ptr++;
     }
 }
 //-->FINAL DE DEFINCION DE METODOS PROPIOS DE ARCHIVO<--
@@ -176,6 +207,17 @@ pid_t exec (const char * file){
 //Metodo que se encarga de la espera del process child, si es el child del thread actual espera
 int wait (pid_t pid){
   return process_wait(pid);
+}
+
+
+
+//Metodo que se encarga de crear un file con el nombre y tamaño especificado
+bool create (const char *file, unsigned initial_size)
+{
+  lock_acquire(&lock_filesys);
+  bool file_status = filesys_create(file, initial_size);
+  lock_release(&lock_filesys);
+  return file_status;
 }
 //-->METODOS DE LLAMADA DEL SISTEMA<--
 
