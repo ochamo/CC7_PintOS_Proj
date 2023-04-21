@@ -121,6 +121,46 @@ syscall_handler (struct intr_frame *f UNUSED)
 				break;
 
 
+      //llamada del sistema que se encarga de eliminar el file especidcado con el nombre
+      case SYS_REMOVE:
+        //obtenemos argumentos
+        get_stack_arguments(f, &args[0], 1);
+
+        //convertimos la direccion de memoria virtual a fisica
+        memFisica_ptr = pagedir_get_page(thread_current()->pagedir, (const void *) args[0]);
+        if (memFisica_ptr == NULL)
+        {
+          exit(-1);
+        }
+        args[0] = (int) memFisica_ptr;
+
+        /* Return the result of the remove() function in the eax register. */
+        //gaurda la respuesta del metodo remove en el registro aex, confirmacion de eliminacion
+        f->eax = remove((const char *) args[0]);
+				break;
+
+
+
+      //llamada del sistema que se encarga de abrir un archivo especifico y ver su descripcion
+      case SYS_OPEN:
+        //obtenemos argumentos para OPEN
+        get_stack_arguments(f, &args[0], 1);
+
+        //convertimos la direccion de memoria virtual a fisica
+        memFisica_ptr = pagedir_get_page(thread_current()->pagedir, (const void *) args[0]);
+        if (memFisica_ptr == NULL)
+        {
+          exit(-1);
+        }
+        args[0] = (int) memFisica_ptr;
+
+        //se pasa la direccion fisica del file como argumento al metodo open
+        f->eax = open((const char *) args[0]);
+
+				break;
+
+
+
       default:
       /* If an invalid system call was sent, terminate the program. */
       exit(-1);
@@ -218,6 +258,47 @@ bool create (const char *file, unsigned initial_size)
   bool file_status = filesys_create(file, initial_size);
   lock_release(&lock_filesys);
   return file_status;
+}
+
+
+//elimina el file correspondiente de la lista de archivos del sistema, y devuelve si se realizo
+//exitosamente la operacioon
+bool remove (const char *file)
+{
+  lock_acquire(&lock_filesys);
+  bool was_removed = filesys_remove(file);
+  lock_release(&lock_filesys);
+  return was_removed;
+}
+
+
+/* Opens a file with the given name, and returns the file descriptor assigned by the
+   thread that opened it. Inspiration derived from GitHub user ryantimwilson (see
+   Design2.txt for attribution link). */
+
+//Metodo que se encarga de abrir y obtener el descriptor del file que tiene el thread actual
+int open (const char *file)
+{
+  //le damos lock al file, para evitar que otros thread interrumpan
+  lock_acquire(&lock_filesys);
+
+  struct file* f = filesys_open(file);
+
+  //si no existe el archivo damos error
+  if(f == NULL)
+  {
+    lock_release(&lock_filesys);
+    return -1;
+  }
+
+  struct thread_file *archivo_new = malloc(sizeof(struct thread_file));
+  archivo_new->file_addr = f;
+  int fd = thread_current ()->current_file_descriptor;
+  thread_current ()->current_file_descriptor++;
+  archivo_new->file_descriptor = fd;
+  list_push_front(&thread_current ()->file_descriptors, &archivo_new->file_elem);
+  lock_release(&lock_filesys);
+  return fd;
 }
 //-->METODOS DE LLAMADA DEL SISTEMA<--
 
