@@ -134,7 +134,7 @@ syscall_handler (struct intr_frame *f UNUSED)
         }
         args[0] = (int) memFisica_ptr;
 
-        /* Return the result of the remove() function in the eax register. */
+
         //gaurda la respuesta del metodo remove en el registro aex, confirmacion de eliminacion
         f->eax = remove((const char *) args[0]);
 				break;
@@ -159,7 +159,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 
 				break;
 
-
+      //llamada del sistema que se encarga de obtener el tamaño de un archivo deseado por un proceso
       case SYS_FILESIZE:
         //obtenemos argumento de filsesize
         get_stack_arguments(f, &args[0], 1);
@@ -214,7 +214,7 @@ syscall_handler (struct intr_frame *f UNUSED)
         break;
 
 
-      //llamada del sistem que se encarga de moverl el puntero de un archivo a una posicion en especifica dentro del file
+      //llamada del sistema que se encarga de mover el puntero de un archivo a una posicion en especifica dentro del file
       case SYS_SEEK:
            //se obtiene 2 argumentos del stack, el fd y la posicion
         get_stack_arguments(f, &args[0], 2);
@@ -222,6 +222,30 @@ syscall_handler (struct intr_frame *f UNUSED)
         //llama al metodo seek para ejecutar la operacion
         seek(args[0], (unsigned) args[1]);
         break;
+
+      //llamada del sistema que se encarga de obtener la posicion actual del puntero de archivo adentro de un
+      //file abierto
+      case SYS_TELL:
+
+        //se obtiene un argumento del stack, el fd que se quiere observar
+        get_stack_arguments(f, &args[0], 1);
+
+        //se obtiene el byte de respuesta de tell y se guarda en el registro aex
+        f->eax = tell(args[0]);
+        break;
+
+
+      //llamada del sistema que se encarga de cerrar el file abierto previamente(Sys open)
+			case SYS_CLOSE:
+
+        //se obtiene un argumento del stack, el file description de un archivo
+        get_stack_arguments(f, &args[0], 1);
+
+        ///se cierra el archivo con la llamada del metodo
+        close(args[0]);
+				break;
+
+
 
 
       default:
