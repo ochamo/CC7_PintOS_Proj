@@ -214,6 +214,14 @@ syscall_handler (struct intr_frame *f UNUSED)
         break;
 
 
+      //llamada del sistem que se encarga de moverl el puntero de un archivo a una posicion en especifica dentro del file
+      case SYS_SEEK:
+           //se obtiene 2 argumentos del stack, el fd y la posicion
+        get_stack_arguments(f, &args[0], 2);
+
+        //llama al metodo seek para ejecutar la operacion
+        seek(args[0], (unsigned) args[1]);
+        break;
 
 
       default:
@@ -483,8 +491,43 @@ int write (int fd, const void *buffer, unsigned length)
 
   lock_release(&lock_filesys);
 
-  /* If we can't write to the file, return 0. */
+
   return 0;
+}
+
+
+   //Metodo encargado de apuntar el puntero del archivo adentro de su descripcion, de un file abierto
+   //empezando desde el incio 0
+void seek (int fd, unsigned position)
+{
+
+  struct list_elem *temp;
+
+  lock_acquire(&lock_filesys);
+
+
+  //prevencion si no hay files en los que buscar adentro con puntero, hacemos return
+  if (list_empty(&thread_current()->file_descriptors))
+  {
+    lock_release(&lock_filesys);
+    return;
+  }
+
+  //vericicaoin si fd esta en la lista de fds, entonces procedemos a mover el puntero del file adentro de el
+  for (temp = list_front(&thread_current()->file_descriptors); temp != NULL; temp = temp->next)
+  {
+      struct thread_file *t = list_entry (temp, struct thread_file, file_elem);
+      if (t->file_descriptor == fd)
+      {
+        file_seek(t->file_addr, position);
+        lock_release(&lock_filesys);
+        return;
+      }
+  }
+
+  lock_release(&lock_filesys);
+
+  return;
 }
 
 //-->METODOS DE LLAMADA DEL SISTEMA<--
