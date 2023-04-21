@@ -90,13 +90,13 @@ struct thread
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
+    uint32_t *pagedir;                 /* Page directory. */
     struct list child_process_list;    /* Lista de procesos hijos */
     int exit_status;                   /* Estado de salida */
     struct list_elem child_elem;       /* Da seguimiento a la child list */
     struct semaphore sem_parent_sleep;  /* Semaforo que duerme al parent para poder esperar al hijo*/
     struct list file_descriptors;      /* Lista de file_descriptor relacionadas al children */
     int current_file_descriptor;       /* Es para el current file_descriptor. */
-    uint32_t *pagedir;                 /* Page directory. */
 #endif
 
     /* Owned by thread.c. */
