@@ -223,6 +223,30 @@ syscall_handler (struct intr_frame *f UNUSED)
         seek(args[0], (unsigned) args[1]);
         break;
 
+      //llamada del sistema que se encarga de obtener la posicion actual del puntero de archivo adentro de un
+      //file abierto
+      case SYS_TELL:
+
+        //se obtiene un argumento del stack, el fd que se quiere observar
+        get_stack_arguments(f, &args[0], 1);
+
+        //se obtiene el byte de respuesta de tell y se guarda en el registro aex
+        f->eax = tell(args[0]);
+        break;
+
+
+      //llamada del sistema que se encarga de cerrar el file abierto previamente(Sys open)
+			case SYS_CLOSE:
+        /* close has exactly one stack argument, representing the fd of the file. */
+        //se obtiene un argumento del stack, el file description de un archivo
+        get_stack_arguments(f, &args[0], 1);
+
+        ///se cierra el archivo con la llamada del metodo
+        close(args[0]);
+				break;
+
+
+
 
       default:
       /* If an invalid system call was sent, terminate the program. */
@@ -337,9 +361,7 @@ bool remove (const char *file)
 }
 
 
-/* Opens a file with the given name, and returns the file descriptor assigned by the
-   thread that opened it. Inspiration derived from GitHub user ryantimwilson (see
-   Design2.txt for attribution link). */
+
 
 //Metodo que se encarga de abrir y obtener el descriptor del file que tiene el thread actual
 int open (const char *file)
@@ -530,5 +552,80 @@ void seek (int fd, unsigned position)
   return;
 }
 
+
+
+
+   //Metodo encargado de dar el byte o posicion en la que se encuentra actualmente adentro de un file abierto
+   //estoe xpresado en bytes
+unsigned tell (int fd)
+{
+
+  struct list_elem *temp;
+
+  lock_acquire(&lock_filesys);
+
+  //verificacion de archivos nulos, para ver si no hay archivo
+  if (list_empty(&thread_current()->file_descriptors))
+  {
+    lock_release(&lock_filesys);
+    return -1;
+  }
+
+  /* Look to see if the given fd is in our list of file_descriptors. If so, then we
+     call file_tell() and return the position. */
+
+     //verifica si el fd actual esta dentro de la lista de file descritptors, si es asi
+     //entonces retornamos la psocion del puntero adentro del file
+  for (temp = list_front(&thread_current()->file_descriptors); temp != NULL; temp = temp->next)
+  {
+      struct thread_file *t = list_entry (temp, struct thread_file, file_elem);
+      if (t->file_descriptor == fd)
+      {
+        unsigned position = (unsigned) file_tell(t->file_addr);
+        lock_release(&lock_filesys);
+        return position;
+      }
+  }
+
+  lock_release(&lock_filesys);
+
+  return -1;
+}
+
+
+//cierra el fd que se pasa como arguemto
+void close (int fd)
+{
+
+  struct list_elem *temp;
+
+  lock_acquire(&lock_filesys);
+
+  //si no hay archivos en nuestro fds list entonces hacemos return
+  if (list_empty(&thread_current()->file_descriptors))
+  {
+    lock_release(&lock_filesys);
+    return;
+  }
+
+
+     //verifica que el fd este en la lista de fds, si es asi entonces lo cierra u lo remueve
+     //de dicha lista de fds
+  for (temp = list_front(&thread_current()->file_descriptors); temp != NULL; temp = temp->next)
+  {
+      struct thread_file *t = list_entry (temp, struct thread_file, file_elem);
+      if (t->file_descriptor == fd)
+      {
+        file_close(t->file_addr);
+        list_remove(&t->file_elem);
+        lock_release(&lock_filesys);
+        return;
+      }
+  }
+
+  lock_release(&lock_filesys);
+
+  return;
+}
 //-->METODOS DE LLAMADA DEL SISTEMA<--
 
