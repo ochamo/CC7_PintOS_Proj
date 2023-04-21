@@ -248,7 +248,7 @@ struct Elf32_Phdr
 #define PF_W 2          /* Writable. */
 #define PF_R 4          /* Readable. */
 
-static bool setup_stack (void **esp);
+static bool setup_stack (void **esp, int argc, char * argv[]);
 static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
@@ -489,19 +489,44 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 static bool
-setup_stack (void **esp)
+setup_stack (void **esp, int argc, char *argv[])
 {
   uint8_t *kpage;
   bool success = false;
-
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-      if (success)
-        *esp = PHYS_BASE;
-      else
+      if (success){
+        *esp = PHYS_BASE - 12;
+        uint32_t * pointer_value[argc];
+        for(int i = argc-1; i >= 0; i--){
+          *esp = *esp - sizeof(char)*(strlen(argv[i])+1);
+          memcpy(*esp, argv[i], sizeof(char)*(strlen(argv[i])+1));
+          pointer_value[i] = (uint32_t *)*esp;
+        }
+        /*Asignamos el espacio y agregamos null*/
+        *esp = *esp - 4;
+        (*(int *)(*esp)) = 0;
+        /* Con nuestro value_pointer hacemos referencia a los argumentos que se agregan al stack*/
+        *esp = *esp - 4;
+        for(int i = argc-1; i >= 0; i--)
+        {
+          (*(uint32_t **)(*esp)) = pointer_value[i];
+          *esp = *esp - 4;
+        }
+        /* Agregamos al stack un pointer de la primera direccion de la lista */
+        (*(uintptr_t **)(*esp)) = *esp + 4;
+        /* Agregamos al stack el numero de argumentos del programa */
+        *esp = *esp - 4;
+        *(int *)(*esp) = argc;
+        /* Agregamos al stack una direccion falsa, con lo que inicializamos el stack */
+        *esp = *esp - 4;
+        (*(int *)(*esp)) = 0;
+      }
+      else{
         palloc_free_page (kpage);
+      }
     }
   return success;
 }
