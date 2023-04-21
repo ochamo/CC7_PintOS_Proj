@@ -390,8 +390,6 @@ int open (const char *file)
 
 
 
-/* Returns the size, in bytes, of the file open as fd. */
-
 //Metodo que se encarga de devolver el tamaño en bytes del archivo abietto como fd
 int filesize (int fd)
 {
@@ -464,14 +462,12 @@ int read (int fd, void *buffer, unsigned length)
 
   lock_release(&lock_filesys);
 
-  /* If we can't read from the file, return -1. */
+//si no es posible leer entonces devolvemos -1
   return -1;
 }
 
 
 
-/* Writes LENGTH bytes from BUFFER to the open file FD. Returns the number of bytes actually written,
- which may be less than LENGTH if some bytes could not be written. */
 
  //Metodo encargado de escribir sobre el file indicado en fd, este devuelve la cantidad de bytes escritos
  //estos deben ser menores a la longitud del buffer
@@ -570,9 +566,6 @@ unsigned tell (int fd)
     lock_release(&lock_filesys);
     return -1;
   }
-
-  /* Look to see if the given fd is in our list of file_descriptors. If so, then we
-     call file_tell() and return the position. */
 
      //verifica si el fd actual esta dentro de la lista de file descritptors, si es asi
      //entonces retornamos la psocion del puntero adentro del file
