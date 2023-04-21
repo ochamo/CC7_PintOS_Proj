@@ -192,6 +192,28 @@ syscall_handler (struct intr_frame *f UNUSED)
 				break;
 
 
+      //llamada del sistema que se encarga de escribir sobre un file que esta abierto
+      case SYS_WRITE:
+
+        //obtiene 3 argumentos del stack, el fd, direccion de buffer y por ultimo tamaño del buffer
+        get_stack_arguments(f, &args[0], 3);
+
+       //chequeo que el buffer este correcto
+        check_buffer((void *)args[1], args[2]);
+
+        //convertimos la direccion de memoria virtual a fisica
+        memFisica_ptr = pagedir_get_page(thread_current()->pagedir, (const void *) args[1]);
+        if (memFisica_ptr == NULL)
+        {
+          exit(-1);
+        }
+        args[1] = (int) memFisica_ptr;
+
+       //devuelve el resultado del write() y lo almacena en registro aex
+        f->eax = write(args[0], (const void *) args[1], (unsigned) args[2]);
+        break;
+
+
 
 
       default:
@@ -414,6 +436,55 @@ int read (int fd, void *buffer, unsigned length)
 
   /* If we can't read from the file, return -1. */
   return -1;
+}
+
+
+
+/* Writes LENGTH bytes from BUFFER to the open file FD. Returns the number of bytes actually written,
+ which may be less than LENGTH if some bytes could not be written. */
+
+ //Metodo encargado de escribir sobre el file indicado en fd, este devuelve la cantidad de bytes escritos
+ //estos deben ser menores a la longitud del buffer
+int write (int fd, const void *buffer, unsigned length)
+{
+
+  struct list_elem *temporal;
+
+  lock_acquire(&lock_filesys);
+
+
+  //fd=1 entonces escribimos a STODUT (consola)
+	if(fd == 1)
+	{
+		putbuf(buffer, length);
+    lock_release(&lock_filesys);
+    return length;
+	}
+  //si no hay archivos como argumento entonces se retorna 0
+  if (fd == 0 || list_empty(&thread_current()->file_descriptors))
+  {
+    lock_release(&lock_filesys);
+    return 0;
+  }
+
+
+     //se chequea que el fd que se desea escribir este abierto y tomado por el proceso actual,
+     //luego retorna el numerro de bytes escritos en el
+  for (temporal = list_front(&thread_current()->file_descriptors); temporal != NULL; temporal = temporal->next)
+  {
+      struct thread_file *t = list_entry (temporal, struct thread_file, file_elem);
+      if (t->file_descriptor == fd)
+      {
+        int bytes_written = (int) file_write(t->file_addr, buffer, length);
+        lock_release(&lock_filesys);
+        return bytes_written;
+      }
+  }
+
+  lock_release(&lock_filesys);
+
+  /* If we can't write to the file, return 0. */
+  return 0;
 }
 
 //-->METODOS DE LLAMADA DEL SISTEMA<--
